@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown, CheckCircle2, Settings, Upload, Image as ImageIcon } from 'lucide-react';
+import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown, CheckCircle2, Settings, Upload, Image as ImageIcon, Lock } from 'lucide-react';
 
 // --- Supabase Initialization ---
-// NOTE FOR VS CODE: When copying to VS Code (Vite), uncomment the two lines below and remove the placeholder ones!
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+const supabaseUrl = 'https://uluivtovwdhtxdljfntk.supabase.co'; 
+const supabaseKey = 'sb_publishable_MYnIPm3W7hOo28gNCBppOw_yl3YbkvK'; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Helper Functions ---
@@ -34,10 +35,10 @@ const getWeekDates = (fridayDateStr) => {
 
 const defaultSettings = {
   companyLogo: 'logo.png',
-  employeeName: '',
-  phone: '',
-  email: '',
-  website: '',
+  employeeName: 'Charles Willis',
+  phone: '(706)844-8059',
+  email: 'charles@naileditpropertysolutions.com',
+  website: 'www.NailedItPropertySolutions.com',
   locations: {
     'Charlie': [],
     'Mike & Lee': [],
@@ -64,6 +65,13 @@ const createInitialForm = () => ({
 });
 
 export default function App() {
+  // --- Lock Screen State ---
+  const [isLocked, setIsLocked] = useState(true);
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // --- App State ---
   const [user, setUser] = useState(null);
   const [view, setView] = useState('form'); 
   const [summaries, setSummaries] = useState([]);
@@ -130,11 +138,24 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && !isLocked) {
       fetchSummaries();
       fetchSettings();
     }
-  }, [user]);
+  }, [user, isLocked]);
+
+  // --- Login Handler ---
+  const handleLogin = (e) => {
+    e.preventDefault();
+    // Default master login credentials so the real admin can get in
+    if (loginUser.toLowerCase() === '288784958' && loginPass === '288784958') {
+      setIsLocked(false);
+      setLoginError('');
+    } else {
+      setLoginError('No Access Granted. Admin Only at This Time.');
+      setLoginPass(''); // Clear password on fail
+    }
+  };
 
   // --- Calculations ---
   const formTotals = useMemo(() => {
@@ -448,6 +469,57 @@ export default function App() {
     );
   };
 
+  // --- Render Lock Screen ---
+  if (isLocked) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans animate-in fade-in duration-500">
+         <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
+            
+            <img src={settings.companyLogo || "logo.png"} alt="Company Logo" className="h-32 mx-auto object-contain mb-8 drop-shadow-xl" onError={(e) => e.target.style.display='none'} />
+            
+            <h2 className="text-2xl font-bold text-white mb-2 flex justify-center items-center gap-2">
+               <Lock size={20} className="text-blue-500"/> Secure Portal
+            </h2>
+            <p className="text-slate-400 text-sm mb-8">Please sign in to access work summaries.</p>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+               <div>
+                  <input 
+                     type="text" 
+                     placeholder="Username" 
+                     value={loginUser} 
+                     onChange={(e) => setLoginUser(e.target.value)} 
+                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition" 
+                     required
+                  />
+               </div>
+               <div>
+                  <input 
+                     type="password" 
+                     placeholder="Password" 
+                     value={loginPass} 
+                     onChange={(e) => setLoginPass(e.target.value)} 
+                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition" 
+                     required
+                  />
+               </div>
+               <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg mt-2">
+                  Sign In
+               </button>
+            </form>
+
+            {loginError && (
+               <div className="mt-6 p-4 bg-red-900/40 border border-red-500/50 rounded-lg animate-in shake">
+                  <p className="text-red-400 text-sm font-bold uppercase tracking-wider">{loginError}</p>
+               </div>
+            )}
+         </div>
+      </div>
+    );
+  }
+
+  // --- Main App Render ---
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
       {/* Top Navigation */}
