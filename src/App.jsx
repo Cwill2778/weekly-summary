@@ -3,10 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown, CheckCircle2, Settings, Upload, Image as ImageIcon, Lock } from 'lucide-react';
 
 // --- Supabase Initialization ---
-
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Helper Functions ---
@@ -48,13 +46,13 @@ const defaultSettings = {
 const createInitialForm = () => ({
   weekEndingDate: '',
   days: [
-    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 }
+    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
+    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
+    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
+    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
+    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
+    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
+    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 }
   ],
   rate: 20,
   deductions: [],
@@ -337,7 +335,8 @@ export default function App() {
       return (s.days || []).some(d => 
         (d.location && d.location.toLowerCase().includes(q)) ||
         (d.assignedTo && (Array.isArray(d.assignedTo) ? d.assignedTo.join(' ').toLowerCase() : String(d.assignedTo).toLowerCase()).includes(q)) ||
-        (d.taskDetails && d.taskDetails.toLowerCase().includes(q))
+        (d.taskDetails && typeof d.taskDetails === 'string' && d.taskDetails.toLowerCase().includes(q)) ||
+        (d.workerTasks && Object.values(d.workerTasks).some(task => typeof task === 'string' && task.toLowerCase().includes(q)))
       );
     });
     return filtered;
@@ -416,7 +415,20 @@ export default function App() {
                      <td className="p-1.5 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
                      <td className="p-1.5 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
                      <td className="p-1.5 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
-                     <td className="p-1.5">{d.taskDetails || '-'}</td>
+                     <td className="p-1.5">
+                        {d.taskDetails && typeof d.taskDetails === 'string' && <div className="mb-0.5">{d.taskDetails}</div>}
+                        {Array.isArray(d.assignedTo) && d.assignedTo.map(w => {
+                           if (printFilter !== 'All' && w !== printFilter) return null;
+                           const task = d.workerTasks && d.workerTasks[w];
+                           if (!task) return null;
+                           return (
+                              <div key={w} className="mb-0.5 leading-tight">
+                                {(d.assignedTo.length > 1 || printFilter === 'All') && <strong className="text-[9px] text-slate-600">{w}: </strong>}
+                                <span>{task}</span>
+                              </div>
+                           );
+                        })}
+                     </td>
                   </tr>
                 )) : (
                   <tr><td colSpan="7" className="p-3 text-center text-slate-500 italic">No scheduled days for this period.</td></tr>
@@ -670,9 +682,34 @@ export default function App() {
                           <span className="lg:hidden mr-2 text-xs font-normal text-slate-500">Calculated Hours:</span>
                           {day.hours > 0 ? day.hours : '-'}
                         </div>
-                        <div className="col-span-3">
+                        <div className="col-span-3 flex flex-col gap-1.5">
                            <label className="text-xs text-slate-500 mb-1 block lg:hidden">Task Details</label>
-                           <input type="text" placeholder="Task summary..." value={day.taskDetails} onChange={(e) => updateDay(actualIndex, 'taskDetails', e.target.value)} className="w-full border border-slate-300 rounded p-2 lg:p-1.5 text-sm" />
+                           {typeof day.taskDetails === 'string' && day.taskDetails && (
+                              <input type="text" placeholder="General task (legacy)..." value={day.taskDetails} onChange={(e) => updateDay(actualIndex, 'taskDetails', e.target.value)} className="w-full border border-slate-300 rounded p-2 lg:p-1.5 text-sm" />
+                           )}
+                           {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
+                             day.assignedTo.map(worker => (
+                               <div key={worker} className="flex items-start gap-1">
+                                 <span className="text-[10px] font-bold text-slate-500 w-14 pt-2 leading-tight truncate">{worker}</span>
+                                 <input 
+                                   type="text" 
+                                   placeholder={`${worker}'s Task...`}
+                                   value={(day.workerTasks && day.workerTasks[worker]) || ''} 
+                                   onChange={(e) => {
+                                     const newDays = [...formData.days];
+                                     newDays[actualIndex].workerTasks = {
+                                       ...(newDays[actualIndex].workerTasks || {}),
+                                       [worker]: e.target.value
+                                     };
+                                     setFormData({ ...formData, days: newDays });
+                                   }} 
+                                   className="flex-1 border border-slate-300 rounded p-2 lg:p-1.5 text-sm" 
+                                 />
+                               </div>
+                             ))
+                           ) : (
+                             <span className="text-xs text-slate-400 italic lg:mt-2">Select workers to assign tasks.</span>
+                           )}
                         </div>
                       </div>
                     );
@@ -935,10 +972,31 @@ export default function App() {
 
       {/* --- PRINT VIEW --- */}
       <div className="hidden print:block w-full bg-white text-black p-0 m-0">
-        <div className="p-6">
-          <p className="text-sm text-slate-900">Printable view is available via the print button in the app.</p>
-        </div>
+         <style type="text/css">
+           {`
+             @media print {
+               @page { size: letter landscape; margin: 0.3in; }
+               body { 
+                 -webkit-print-color-adjust: exact; 
+                 print-color-adjust: exact; 
+                 margin: 0; 
+                 padding: 0; 
+                 box-sizing: border-box; 
+               }
+               * { box-sizing: border-box; }
+               .page-break-after { page-break-after: always; }
+             }
+           `}
+         </style>
+         
+         {/* Page 1: Weekdays Report */}
+         {renderPrintPage("Weekdays Report", formData.days.slice(0, 5), "Weekdays", false)}
+         
+         {/* Page 2: Weekend Report */}
+         {renderPrintPage("Weekend Report", formData.days.slice(5, 7), "Weekend", true)}
+
       </div>
+
     </div>
   );
 }
