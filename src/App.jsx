@@ -4,11 +4,9 @@ import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown,
 
 // --- Supabase Initialization ---
 // NOTE FOR VS CODE: When copying to VS Code (Vite), uncomment the two lines below and remove the placeholder ones!
-// const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-// const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const supabaseUrl = 'https://placeholder-url.supabase.co'; 
-const supabaseKey = 'placeholder-key'; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Helper Functions ---
@@ -76,6 +74,7 @@ export default function App() {
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const [printFilter, setPrintFilter] = useState('All');
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [summaryTab, setSummaryTab] = useState('Total'); // 'Total' | 'Weekdays' | 'Weekend'
 
   const [settings, setSettings] = useState(defaultSettings);
   const [newLocs, setNewLocs] = useState({ 'Charlie': '', 'Mike & Lee': '', 'Terry': '' });
@@ -83,7 +82,6 @@ export default function App() {
 
   // --- Authentication & Data Fetching ---
   useEffect(() => {
-    // Check active session or sign in anonymously
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -140,12 +138,31 @@ export default function App() {
 
   // --- Calculations ---
   const formTotals = useMemo(() => {
-    const hours = formData.days.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
-    const gross = hours * (Number(formData.rate) || 0);
-    const deds = (formData.deductions || []).reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-    const bons = (formData.bonuses || []).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-    return { hours, gross, deds, bons, net: gross + bons - deds };
+    const calcSubset = (daysSubset, periodName) => {
+      const hours = daysSubset.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
+      const gross = hours * (Number(formData.rate) || 0);
+      const deds = (formData.deductions || []).filter(d => (d.period || 'Weekdays') === periodName).reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+      const bons = (formData.bonuses || []).filter(b => (b.period || 'Weekdays') === periodName).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+      return { hours, gross, deds, bons, net: gross + bons - deds };
+    };
+
+    const weekdays = calcSubset(formData.days.slice(0, 5), 'Weekdays');
+    const weekend = calcSubset(formData.days.slice(5, 7), 'Weekend');
+
+    return {
+      weekdays,
+      weekend,
+      total: {
+        hours: weekdays.hours + weekend.hours,
+        gross: weekdays.gross + weekend.gross,
+        deds: weekdays.deds + weekend.deds,
+        bons: weekdays.bons + weekend.bons,
+        net: weekdays.net + weekend.net
+      }
+    };
   }, [formData]);
+
+  const activeTotals = summaryTab === 'Total' ? formTotals.total : summaryTab === 'Weekdays' ? formTotals.weekdays : formTotals.weekend;
 
   // --- Handlers ---
   const handleDateChange = (e) => {
@@ -170,7 +187,7 @@ export default function App() {
   const addFin = (type) => {
     setFormData(p => ({
       ...p,
-      [type]: [...(p[type] || []), { id: Date.now(), reason: '', amount: '', assignedTo: 'All' }]
+      [type]: [...(p[type] || []), { id: Date.now(), reason: '', amount: '', assignedTo: 'All', period: 'Weekdays' }]
     }));
   };
 
@@ -306,40 +323,127 @@ export default function App() {
     return filtered;
   }, [summaries, searchQuery]);
 
-  // --- Render Helpers ---
-  const renderPrintTable = (title, daysSubset, filter) => {
-    const visibleDays = daysSubset.filter(d => filter === 'All' || d.assignedTo === filter);
+  // --- Render Print Reports ---
+  const renderPrintPage = (title, daysSubset, periodName, isLastPage) => {
+    const vDays = daysSubset.filter(d => printFilter === 'All' || d.assignedTo === printFilter);
+    const tHours = vDays.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
+    const tGross = tHours * (Number(formData.rate) || 20);
+    
+    const vDeds = (formData.deductions || []).filter(d => 
+       (printFilter === 'All' || d.assignedTo === 'All' || d.assignedTo === printFilter) && 
+       ((d.period || 'Weekdays') === periodName)
+    );
+    const tDeds = vDeds.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+
+    const vBons = (formData.bonuses || []).filter(b => 
+       (printFilter === 'All' || b.assignedTo === 'All' || b.assignedTo === printFilter) && 
+       ((b.period || 'Weekdays') === periodName)
+    );
+    const tBons = vBons.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+
+    const tNet = tGross + tBons - tDeds;
+
     return (
-      <div className="mb-6 break-inside-avoid">
-         <h2 className="font-bold text-lg mb-2 text-slate-800">{title}</h2>
-         <table className="w-full border-collapse border border-slate-400 text-sm">
-            <thead>
-              <tr className="bg-slate-100 border-b border-slate-400 text-left">
-                <th className="p-2 border-r border-slate-400 w-28">Day</th>
-                <th className="p-2 border-r border-slate-400 w-28">Assigned To</th>
-                <th className="p-2 border-r border-slate-400 w-48">Location</th>
-                <th className="p-2 border-r border-slate-400 w-16 text-center">In</th>
-                <th className="p-2 border-r border-slate-400 w-16 text-center">Out</th>
-                <th className="p-2 border-r border-slate-400 w-16 text-center">Hrs</th>
-                <th className="p-2">Task Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleDays.length > 0 ? visibleDays.map(d => (
-                <tr key={d.name} className="border-b border-slate-300">
-                   <td className="p-2 border-r border-slate-400"><strong>{d.name}</strong><br/><span className="text-xs text-slate-600">{d.date}</span></td>
-                   <td className="p-2 border-r border-slate-400">{d.assignedTo || '-'}</td>
-                   <td className="p-2 border-r border-slate-400">{d.location || '-'}</td>
-                   <td className="p-2 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
-                   <td className="p-2 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
-                   <td className="p-2 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
-                   <td className="p-2">{d.taskDetails || '-'}</td>
+      <div className={`flex flex-col w-full h-[100vh] pt-4 ${!isLastPage ? 'page-break-after' : ''}`}>
+         {/* Print Header */}
+         <div className="flex items-end justify-between border-b-2 border-slate-800 pb-2 mb-6 shrink-0">
+             <div className="flex items-center gap-4">
+                <img src={settings.companyLogo || 'logo.png'} alt="Company Logo" className="h-16 w-auto object-contain" onError={(e) => e.target.style.display='none'} />
+                <div>
+                   {settings.employeeName && <h2 className="text-xl font-bold text-slate-900 leading-tight">{settings.employeeName}</h2>}
+                   <div className="text-xs text-slate-700 flex gap-4 mt-1 font-medium">
+                      {settings.phone && <span>{settings.phone}</span>}
+                      {settings.email && <span>{settings.email}</span>}
+                      {settings.website && <span>{settings.website}</span>}
+                   </div>
+                </div>
+             </div>
+             <div className="text-right">
+                 <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900 leading-tight">Weekly Summary</h1>
+                 <p className="text-base text-slate-700">Week Ending: <strong>{formData.weekEndingDate || 'N/A'}</strong></p>
+                 <div className="mt-1 flex gap-2 justify-end">
+                    <span className="inline-block bg-slate-800 text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">{title}</span>
+                    {printFilter !== 'All' && (
+                      <span className="inline-block bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs font-bold text-slate-800">Worker: {printFilter}</span>
+                    )}
+                 </div>
+             </div>
+         </div>
+
+         {/* Print Table */}
+         <div className="mb-4 break-inside-avoid w-full flex-1">
+           <table className="w-full border-collapse border border-slate-400 text-[11px]">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-400 text-left">
+                  <th className="p-2 border-r border-slate-400 w-24">Day</th>
+                  <th className="p-2 border-r border-slate-400 w-24">Assigned To</th>
+                  <th className="p-2 border-r border-slate-400 w-48">Location</th>
+                  <th className="p-2 border-r border-slate-400 w-16 text-center">In</th>
+                  <th className="p-2 border-r border-slate-400 w-16 text-center">Out</th>
+                  <th className="p-2 border-r border-slate-400 w-12 text-center">Hrs</th>
+                  <th className="p-2">Task Details</th>
                 </tr>
-              )) : (
-                <tr><td colSpan="7" className="p-4 text-center text-slate-500 italic">No scheduled days for this period.</td></tr>
-              )}
-            </tbody>
-         </table>
+              </thead>
+              <tbody>
+                {vDays.length > 0 ? vDays.map(d => (
+                  <tr key={d.name} className="border-b border-slate-300">
+                     <td className="p-2 border-r border-slate-400 leading-tight"><strong>{d.name}</strong><br/><span className="text-[10px] text-slate-600">{d.date}</span></td>
+                     <td className="p-2 border-r border-slate-400">{d.assignedTo || '-'}</td>
+                     <td className="p-2 border-r border-slate-400 truncate max-w-[180px]">{d.location || '-'}</td>
+                     <td className="p-2 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
+                     <td className="p-2 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
+                     <td className="p-2 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
+                     <td className="p-2">{d.taskDetails || '-'}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="7" className="p-4 text-center text-slate-500 italic">No scheduled days for this period.</td></tr>
+                )}
+              </tbody>
+           </table>
+         </div>
+
+         {/* Print Payment Details */}
+         <div className="mt-auto pt-4 border-t-2 border-slate-800 break-inside-avoid flex justify-end">
+             <div className="w-[500px] bg-slate-50 p-5 border border-slate-300 rounded shadow-sm text-sm">
+                <h3 className="font-bold text-lg mb-4 text-center border-b border-slate-300 pb-2 uppercase tracking-wider">{title} - Payment</h3>
+                <div className="grid grid-cols-2 gap-8">
+                   <div>
+                      <div className="flex justify-between mb-2 text-slate-700"><span>Total Hours:</span><strong className="text-base">{tHours}</strong></div>
+                      <div className="flex justify-between mb-2 text-slate-700"><span>Rate:</span><strong>${Number(formData.rate || 20).toFixed(2)} / hr</strong></div>
+                      <div className="flex justify-between mb-3 border-b border-slate-200 pb-3 text-slate-800"><span>Gross Wage:</span><strong className="text-base">${tGross.toFixed(2)}</strong></div>
+                      {(formData.datePaid || formData.paymentMethod) && (
+                         <div className="mt-4 text-xs text-slate-600 bg-white p-2 border border-slate-200 rounded">
+                            <div className="mb-1"><strong>PAID:</strong> {formData.datePaid || 'Pending'}</div>
+                            <div><strong>METHOD:</strong> {formData.paymentMethod || '-'}</div>
+                         </div>
+                      )}
+                   </div>
+                   <div className="flex flex-col justify-between">
+                      <div>
+                        {vBons.length > 0 && (
+                          <div className="mb-2">
+                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Bonuses</span>
+                             {vBons.map(b => (
+                               <div key={b.id} className="flex justify-between text-slate-800 text-xs pl-1 mb-0.5"><span>+ {b.reason || 'Bonus'}</span><span>${Number(b.amount).toFixed(2)}</span></div>
+                             ))}
+                          </div>
+                        )}
+                        {vDeds.length > 0 && (
+                          <div className="mb-3 border-b border-slate-200 pb-3">
+                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Deductions</span>
+                             {vDeds.map(d => (
+                               <div key={d.id} className="flex justify-between text-slate-800 text-xs pl-1 mb-0.5"><span>- {d.reason || 'Deduction'}</span><span>${Number(d.amount).toFixed(2)}</span></div>
+                             ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center text-lg font-black mt-2 pt-2 bg-slate-200 px-3 py-2 rounded">
+                        <span>Net Pay:</span><span>${tNet.toFixed(2)}</span>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
       </div>
     );
   };
@@ -398,7 +502,7 @@ export default function App() {
               </div>
               <div className="w-full md:w-auto bg-slate-100 rounded-lg p-3 px-6 flex flex-col justify-center border border-slate-200">
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Total Weekly Hours</p>
-                <p className="text-3xl font-black text-slate-800 tracking-tight">{formTotals.hours}</p>
+                <p className="text-3xl font-black text-slate-800 tracking-tight">{formTotals.total.hours}</p>
               </div>
             </div>
 
@@ -486,18 +590,22 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                <div className="lg:col-span-3 space-y-4">
                   {/* Deductions */}
-                  <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
                     <div className="flex justify-between items-center mb-3">
                        <h4 className="font-bold text-slate-800">Deductions</h4>
                        <button onClick={() => addFin('deductions')} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1 px-3 rounded flex items-center gap-1 transition"><Plus size={14}/> Add</button>
                     </div>
                     {formData.deductions.length === 0 && <p className="text-sm text-slate-400 italic">No deductions applied.</p>}
                     {formData.deductions.map((d, i) => (
-                       <div key={d.id} className="flex gap-2 mb-2">
+                       <div key={d.id} className="flex flex-nowrap gap-2 mb-2 min-w-[500px]">
                           <input placeholder="Reason" value={d.reason} onChange={(e) => updateFin('deductions', i, 'reason', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm flex-1" />
-                          <input type="number" placeholder="$0.00" value={d.amount} onChange={(e) => updateFin('deductions', i, 'amount', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-24" />
-                          <select value={d.assignedTo} onChange={(e) => updateFin('deductions', i, 'assignedTo', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-32 bg-white">
-                             <option value="All">All</option>
+                          <input type="number" placeholder="$0.00" value={d.amount} onChange={(e) => updateFin('deductions', i, 'amount', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-20" />
+                          <select value={d.period || 'Weekdays'} onChange={(e) => updateFin('deductions', i, 'period', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-28 bg-white">
+                             <option value="Weekdays">Weekdays</option>
+                             <option value="Weekend">Weekend</option>
+                          </select>
+                          <select value={d.assignedTo} onChange={(e) => updateFin('deductions', i, 'assignedTo', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-28 bg-white">
+                             <option value="All">All Workers</option>
                              <option value="Charlie">Charlie</option>
                              <option value="Mike & Lee">Mike & Lee</option>
                              <option value="Terry">Terry</option>
@@ -508,18 +616,22 @@ export default function App() {
                   </div>
 
                   {/* Bonuses */}
-                  <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
                     <div className="flex justify-between items-center mb-3">
                        <h4 className="font-bold text-slate-800">Bonuses</h4>
                        <button onClick={() => addFin('bonuses')} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1 px-3 rounded flex items-center gap-1 transition"><Plus size={14}/> Add</button>
                     </div>
                     {formData.bonuses.length === 0 && <p className="text-sm text-slate-400 italic">No bonuses applied.</p>}
                     {formData.bonuses.map((b, i) => (
-                       <div key={b.id} className="flex gap-2 mb-2">
+                       <div key={b.id} className="flex flex-nowrap gap-2 mb-2 min-w-[500px]">
                           <input placeholder="Reason" value={b.reason} onChange={(e) => updateFin('bonuses', i, 'reason', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm flex-1" />
-                          <input type="number" placeholder="$0.00" value={b.amount} onChange={(e) => updateFin('bonuses', i, 'amount', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-24" />
-                          <select value={b.assignedTo} onChange={(e) => updateFin('bonuses', i, 'assignedTo', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-32 bg-white">
-                             <option value="All">All</option>
+                          <input type="number" placeholder="$0.00" value={b.amount} onChange={(e) => updateFin('bonuses', i, 'amount', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-20" />
+                          <select value={b.period || 'Weekdays'} onChange={(e) => updateFin('bonuses', i, 'period', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-28 bg-white">
+                             <option value="Weekdays">Weekdays</option>
+                             <option value="Weekend">Weekend</option>
+                          </select>
+                          <select value={b.assignedTo} onChange={(e) => updateFin('bonuses', i, 'assignedTo', e.target.value)} className="border border-slate-300 rounded p-1.5 text-sm w-28 bg-white">
+                             <option value="All">All Workers</option>
                              <option value="Charlie">Charlie</option>
                              <option value="Mike & Lee">Mike & Lee</option>
                              <option value="Terry">Terry</option>
@@ -530,55 +642,62 @@ export default function App() {
                   </div>
                </div>
 
-               <div className="lg:col-span-2 bg-slate-800 text-white p-5 rounded-lg shadow-md flex flex-col h-full">
-                  <h3 className="font-bold text-lg border-b border-slate-600 pb-2 mb-4">Payment Summary</h3>
-                  <div className="space-y-3 flex-1">
-                    <div className="flex justify-between items-center text-slate-300">
-                      <span>Total Hours</span>
-                      <span className="font-mono text-white font-bold">{formTotals.hours}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-300">
-                      <span>Hourly Rate</span>
-                      <div className="flex items-center bg-slate-700 rounded overflow-hidden border border-slate-600">
-                         <span className="px-2 text-slate-400 font-mono">$</span>
-                         <input type="number" value={formData.rate} onChange={(e) => setFormData({...formData, rate: e.target.value})} className="bg-transparent text-white font-mono p-1 w-16 outline-none" />
+               {/* Dynamic Screen Summary */}
+               <div className="lg:col-span-2 bg-slate-800 text-white rounded-lg shadow-md flex flex-col h-full overflow-hidden border border-slate-700">
+                  <div className="flex bg-slate-900 border-b border-slate-700 text-sm font-medium">
+                     <button onClick={() => setSummaryTab('Total')} className={`flex-1 py-3 text-center transition ${summaryTab === 'Total' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-400' : 'text-slate-400 hover:text-white'}`}>Grand Total</button>
+                     <button onClick={() => setSummaryTab('Weekdays')} className={`flex-1 py-3 text-center transition ${summaryTab === 'Weekdays' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-400' : 'text-slate-400 hover:text-white'}`}>Weekdays</button>
+                     <button onClick={() => setSummaryTab('Weekend')} className={`flex-1 py-3 text-center transition ${summaryTab === 'Weekend' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-400' : 'text-slate-400 hover:text-white'}`}>Weekend</button>
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col">
+                    <div className="space-y-3 flex-1">
+                      <div className="flex justify-between items-center text-slate-300">
+                        <span>{summaryTab} Hours</span>
+                        <span className="font-mono text-white font-bold">{activeTotals.hours}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-300">
+                        <span>Hourly Rate</span>
+                        <div className="flex items-center bg-slate-700 rounded overflow-hidden border border-slate-600 focus-within:border-blue-400">
+                           <span className="px-2 text-slate-400 font-mono">$</span>
+                           <input type="number" value={formData.rate} onChange={(e) => setFormData({...formData, rate: e.target.value})} className="bg-transparent text-white font-mono p-1 w-16 outline-none" />
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center text-lg mt-2 pt-2 border-t border-slate-600">
+                        <span>Gross Wage</span>
+                        <span className="font-mono font-bold">${activeTotals.gross.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-red-400 text-sm">
+                        <span>Deductions</span>
+                        <span className="font-mono">-${activeTotals.deds.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-green-400 text-sm">
+                        <span>Bonuses</span>
+                        <span className="font-mono">+${activeTotals.bons.toFixed(2)}</span>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-lg mt-2 pt-2 border-t border-slate-600">
-                      <span>Gross Wage</span>
-                      <span className="font-mono font-bold">${formTotals.gross.toFixed(2)}</span>
+                    <div className="mt-4 bg-slate-900 p-4 rounded border border-slate-700">
+                       <div className="flex justify-between items-center text-xl font-bold text-white mb-4">
+                         <span>Net Pay</span>
+                         <span className="font-mono text-blue-400">${activeTotals.net.toFixed(2)}</span>
+                       </div>
+                       <div className="grid grid-cols-2 gap-3">
+                          <div>
+                             <label className="text-xs text-slate-400 block mb-1">Date Paid</label>
+                             <input type="date" value={formData.datePaid} onChange={e => setFormData({...formData, datePaid: e.target.value})} className="bg-slate-800 border border-slate-600 rounded p-1.5 w-full text-sm text-white focus:outline-none"/>
+                          </div>
+                          <div>
+                             <label className="text-xs text-slate-400 block mb-1">Method</label>
+                             <select value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="bg-slate-800 border border-slate-600 rounded p-1.5 w-full text-sm text-white focus:outline-none appearance-none">
+                                <option value="">Select...</option>
+                                <option value="Check">Check</option>
+                                <option value="Direct Deposit">Direct Deposit</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Zelle">Zelle</option>
+                                <option value="Venmo">Venmo</option>
+                             </select>
+                          </div>
+                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-red-400 text-sm">
-                      <span>Deductions</span>
-                      <span className="font-mono">-${formTotals.deds.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-green-400 text-sm">
-                      <span>Bonuses</span>
-                      <span className="font-mono">+${formTotals.bons.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4 bg-slate-900 p-4 rounded border border-slate-700">
-                     <div className="flex justify-between items-center text-xl font-bold text-white mb-4">
-                       <span>Net Pay</span>
-                       <span className="font-mono text-blue-400">${formTotals.net.toFixed(2)}</span>
-                     </div>
-                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                           <label className="text-xs text-slate-400 block mb-1">Date Paid</label>
-                           <input type="date" value={formData.datePaid} onChange={e => setFormData({...formData, datePaid: e.target.value})} className="bg-slate-800 border border-slate-600 rounded p-1.5 w-full text-sm text-white focus:outline-none"/>
-                        </div>
-                        <div>
-                           <label className="text-xs text-slate-400 block mb-1">Method</label>
-                           <select value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="bg-slate-800 border border-slate-600 rounded p-1.5 w-full text-sm text-white focus:outline-none appearance-none">
-                              <option value="">Select...</option>
-                              <option value="Check">Check</option>
-                              <option value="Direct Deposit">Direct Deposit</option>
-                              <option value="Cash">Cash</option>
-                              <option value="Zelle">Zelle</option>
-                              <option value="Venmo">Venmo</option>
-                           </select>
-                        </div>
-                     </div>
                   </div>
                </div>
             </div>
@@ -721,95 +840,23 @@ export default function App() {
       </main>
 
       {/* --- PRINT VIEW --- */}
-      <div className="hidden print:block w-full text-black bg-white font-sans text-sm p-4 pt-0 mx-auto" style={{ maxWidth: '1000px' }}>
-         <div className="flex items-end justify-between border-b-2 border-slate-800 pb-4 mb-6">
-             <div className="flex flex-col">
-                <img src={settings.companyLogo || 'logo.png'} alt="Company Logo" className="h-20 w-auto object-contain mb-2" onError={(e) => e.target.style.display='none'} />
-                {settings.employeeName && <h2 className="text-xl font-bold text-slate-900">{settings.employeeName}</h2>}
-                <div className="text-sm text-slate-700 mt-1 flex flex-col gap-0.5">
-                   {settings.phone && <span>{settings.phone}</span>}
-                   {settings.email && <span>{settings.email}</span>}
-                   {settings.website && <span>{settings.website}</span>}
-                </div>
-             </div>
-             <div className="text-right">
-                 <h1 className="text-3xl font-black uppercase tracking-widest text-slate-900">Weekly Summary</h1>
-                 <p className="text-lg text-slate-700 mt-1">Week Ending: <strong>{formData.weekEndingDate || 'N/A'}</strong></p>
-                 {printFilter !== 'All' && (
-                   <div className="mt-2 inline-block bg-slate-100 border border-slate-300 px-3 py-1 rounded">
-                     <p className="text-md font-bold text-slate-800">Assigned To: {printFilter}</p>
-                   </div>
-                 )}
-             </div>
-         </div>
+      <div className="hidden print:block w-full bg-white text-black p-0 m-0">
+         <style type="text/css">
+           {`
+             @media print {
+               @page { size: landscape; margin: 0.5cm; }
+               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+               .page-break-after { page-break-after: always; }
+             }
+           `}
+         </style>
+         
+         {/* Page 1: Weekdays Report */}
+         {renderPrintPage("Weekdays Report", formData.days.slice(0, 5), "Weekdays", false)}
+         
+         {/* Page 2: Weekend Report */}
+         {renderPrintPage("Weekend Report", formData.days.slice(5, 7), "Weekend", true)}
 
-         {renderPrintTable("Weekdays (Mon - Fri)", formData.days.slice(0, 5), printFilter)}
-         <div className="h-4"></div>
-         {renderPrintTable("Weekend (Sat - Sun)", formData.days.slice(5, 7), printFilter)}
-
-         {(() => {
-            const vDays = formData.days.filter(d => printFilter === 'All' || d.assignedTo === printFilter);
-            const tHours = vDays.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
-            const tGross = tHours * (Number(formData.rate) || 20);
-            
-            const vDeds = (formData.deductions || []).filter(d => printFilter === 'All' || d.assignedTo === 'All' || d.assignedTo === printFilter);
-            const tDeds = vDeds.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-
-            const vBons = (formData.bonuses || []).filter(b => printFilter === 'All' || b.assignedTo === 'All' || b.assignedTo === printFilter);
-            const tBons = vBons.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-
-            const tNet = tGross + tBons - tDeds;
-
-            return (
-              <div className="mt-8 pt-4 border-t-2 border-slate-800 break-inside-avoid flex justify-end">
-                 <div className="w-96 bg-white p-5 border-2 border-slate-300 rounded shadow-sm">
-                    <h3 className="font-bold text-xl mb-4 text-center border-b border-slate-300 pb-2 uppercase tracking-wider">Payment Details</h3>
-                    <div className="flex justify-between mb-1 text-slate-700">
-                      <span>Total Hours:</span><strong className="text-lg">{tHours}</strong>
-                    </div>
-                    <div className="flex justify-between mb-1 text-slate-700">
-                      <span>Rate:</span><strong>${Number(formData.rate || 20).toFixed(2)} / hr</strong>
-                    </div>
-                    <div className="flex justify-between mb-4 border-b border-slate-200 pb-3 text-slate-800">
-                      <span>Gross Wage:</span><strong className="text-lg">${tGross.toFixed(2)}</strong>
-                    </div>
-                    
-                    {vBons.length > 0 && (
-                      <div className="mb-2">
-                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Bonuses Added</span>
-                         {vBons.map(b => (
-                           <div key={b.id} className="flex justify-between text-slate-800 text-sm pl-2 mt-1">
-                             <span>+ {b.reason || 'Bonus'}</span><span>${Number(b.amount).toFixed(2)}</span>
-                           </div>
-                         ))}
-                      </div>
-                    )}
-
-                    {vDeds.length > 0 && (
-                      <div className="mb-4 border-b border-slate-200 pb-3">
-                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-2 block">Deductions</span>
-                         {vDeds.map(d => (
-                           <div key={d.id} className="flex justify-between text-slate-800 text-sm pl-2 mt-1">
-                             <span>- {d.reason || 'Deduction'}</span><span>${Number(d.amount).toFixed(2)}</span>
-                           </div>
-                         ))}
-                      </div>
-                    )}
-
-                    <div className="flex justify-between text-2xl font-black mt-3 pt-2 bg-slate-100 p-2 rounded">
-                      <span>Net Pay:</span><span>${tNet.toFixed(2)}</span>
-                    </div>
-
-                    {(formData.datePaid || formData.paymentMethod) && (
-                      <div className="mt-5 pt-3 border-t border-slate-300 text-sm text-slate-600 grid grid-cols-2 gap-4">
-                         <div><strong className="uppercase text-xs tracking-wider block mb-1">Date Paid</strong> {formData.datePaid || 'Pending'}</div>
-                         <div><strong className="uppercase text-xs tracking-wider block mb-1">Method</strong> {formData.paymentMethod || '-'}</div>
-                      </div>
-                    )}
-                 </div>
-              </div>
-            )
-         })()}
       </div>
 
     </div>
