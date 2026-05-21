@@ -47,13 +47,13 @@ const defaultSettings = {
 const createInitialForm = () => ({
   weekEndingDate: '',
   days: [
-    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
-    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
-    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
-    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
-    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
-    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
-    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 }
+    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 },
+    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 },
+    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 },
+    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 },
+    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 },
+    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 },
+    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, workerStartTimes: {}, workerStopTimes: {}, workerHours: {}, hours: 0 }
   ],
   rate: 20,
   deductions: [],
@@ -158,11 +158,21 @@ export default function App() {
   // --- Calculations ---
   const formTotals = useMemo(() => {
     const calcSubset = (daysSubset, periodName) => {
-      const hours = daysSubset.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
-      const gross = hours * (Number(formData.rate) || 0);
+      let totalHours = 0;
+      daysSubset.forEach(d => {
+        if (Array.isArray(d.assignedTo) && d.assignedTo.length > 0) {
+           d.assignedTo.forEach(w => {
+              totalHours += Number((d.workerHours || {})[w]) || (d.assignedTo.length === 1 ? Number(d.hours) || 0 : 0);
+           });
+        } else {
+           totalHours += Number(d.hours) || 0;
+        }
+      });
+      
+      const gross = totalHours * (Number(formData.rate) || 0);
       const deds = (formData.deductions || []).filter(d => (d.period || 'Weekdays') === periodName).reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
       const bons = (formData.bonuses || []).filter(b => (b.period || 'Weekdays') === periodName).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-      return { hours, gross, deds, bons, net: gross + bons - deds };
+      return { hours: totalHours, gross, deds, bons, net: gross + bons - deds };
     };
 
     const weekdays = calcSubset(formData.days.slice(0, 5), 'Weekdays');
@@ -197,9 +207,40 @@ export default function App() {
   const updateDay = (index, field, value) => {
     const newDays = [...formData.days];
     newDays[index][field] = value;
+    // Legacy single time handler just in case
     if (field === 'startTime' || field === 'stopTime') {
        newDays[index].hours = getHours(newDays[index].startTime, newDays[index].stopTime);
     }
+    setFormData({ ...formData, days: newDays });
+  };
+
+  const updateWorkerTime = (index, worker, field, value) => {
+    const newDays = [...formData.days];
+    const day = newDays[index];
+    
+    if (!day.workerStartTimes) day.workerStartTimes = {};
+    if (!day.workerStopTimes) day.workerStopTimes = {};
+    if (!day.workerHours) day.workerHours = {};
+
+    if (field === 'start') {
+        day.workerStartTimes[worker] = value;
+    } else if (field === 'stop') {
+        day.workerStopTimes[worker] = value;
+    }
+
+    const start = day.workerStartTimes[worker] || (day.assignedTo.length === 1 ? day.startTime : '');
+    const stop = day.workerStopTimes[worker] || (day.assignedTo.length === 1 ? day.stopTime : '');
+    
+    const hrs = getHours(start, stop);
+    day.workerHours[worker] = hrs;
+
+    // Legacy sync if they are the only worker assigned
+    if (day.assignedTo.length === 1) {
+        if (field === 'start') day.startTime = value;
+        if (field === 'stop') day.stopTime = value;
+        day.hours = hrs;
+    }
+
     setFormData({ ...formData, days: newDays });
   };
 
@@ -271,6 +312,7 @@ export default function App() {
   const editSummary = (summary) => {
     setFormData({ ...createInitialForm(), ...summary });
     setView('form');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSaveSettings = async () => {
@@ -349,7 +391,22 @@ export default function App() {
     const checkAssigned = (assigned, filter) => filter === 'All' || (Array.isArray(assigned) ? assigned.includes(filter) : assigned === filter);
 
     const vDays = daysSubset.filter(d => checkAssigned(d.assignedTo, printFilter));
-    const tHours = vDays.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
+    
+    // Sum hours based on individual assigned worker calculations
+    const tHours = vDays.reduce((sum, d) => {
+      let dayHrs = 0;
+      if (Array.isArray(d.assignedTo) && d.assignedTo.length > 0) {
+          d.assignedTo.forEach(w => {
+             if (printFilter === 'All' || printFilter === w) {
+                dayHrs += Number((d.workerHours || {})[w]) || (d.assignedTo.length === 1 ? Number(d.hours) || 0 : 0);
+             }
+          });
+      } else {
+          dayHrs += Number(d.hours) || 0;
+      }
+      return sum + dayHrs;
+    }, 0);
+
     const tGross = tHours * (Number(formData.rate) || 20);
     
     const vDeds = (formData.deductions || []).filter(d => 
@@ -388,7 +445,7 @@ export default function App() {
                  <div className="mt-1 flex gap-2 justify-end">
                     <span className="inline-block bg-slate-800 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{title}</span>
                     {printFilter !== 'All' && (
-                      <span className="inline-block bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold text-slate-800">Worker: {printFilter}</span>
+                      <span className="inline-block bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold text-slate-800">Property Owner: {printFilter}</span>
                     )}
                  </div>
              </div>
@@ -429,9 +486,33 @@ export default function App() {
                            })
                         ) : (d.location || '-')}
                      </td>
-                     <td className="p-1.5 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
-                     <td className="p-1.5 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
-                     <td className="p-1.5 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400 text-center">
+                        {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
+                           d.assignedTo.map(w => {
+                              if (printFilter !== 'All' && w !== printFilter) return null;
+                              const tIn = (d.workerStartTimes && d.workerStartTimes[w]) || (d.assignedTo.length === 1 ? d.startTime : '') || '-';
+                              return <div key={w} className="mb-0.5 leading-tight">{tIn}</div>;
+                           })
+                        ) : (d.startTime || '-')}
+                     </td>
+                     <td className="p-1.5 border-r border-slate-400 text-center">
+                        {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
+                           d.assignedTo.map(w => {
+                              if (printFilter !== 'All' && w !== printFilter) return null;
+                              const tOut = (d.workerStopTimes && d.workerStopTimes[w]) || (d.assignedTo.length === 1 ? d.stopTime : '') || '-';
+                              return <div key={w} className="mb-0.5 leading-tight">{tOut}</div>;
+                           })
+                        ) : (d.stopTime || '-')}
+                     </td>
+                     <td className="p-1.5 border-r border-slate-400 text-center font-bold text-slate-800">
+                        {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
+                           d.assignedTo.map(w => {
+                              if (printFilter !== 'All' && w !== printFilter) return null;
+                              const hrs = (d.workerHours && d.workerHours[w]) || (d.assignedTo.length === 1 ? d.hours : 0) || '-';
+                              return <div key={w} className="mb-0.5 leading-tight">{hrs}</div>;
+                           })
+                        ) : (d.hours > 0 ? d.hours : '-')}
+                     </td>
                      <td className="p-1.5">
                         {d.taskDetails && typeof d.taskDetails === 'string' && <div className="mb-0.5">{d.taskDetails}</div>}
                         {Array.isArray(d.assignedTo) && d.assignedTo.map(w => {
@@ -665,8 +746,8 @@ export default function App() {
                           <label className="text-xs text-slate-500 mb-1 block lg:hidden">Location</label>
                           {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
                             day.assignedTo.map(worker => (
-                              <div key={worker} className="flex items-start gap-1">
-                                {day.assignedTo.length > 1 && <span className="text-[10px] font-bold text-slate-500 w-14 pt-2 leading-tight truncate">{worker}</span>}
+                              <div key={worker} className="flex items-center gap-1 h-[36px] w-full">
+                                {day.assignedTo.length > 1 && <span className="text-[10px] font-bold text-slate-500 w-14 leading-tight truncate">{worker}</span>}
                                 <select 
                                   value={(day.workerLocations && day.workerLocations[worker]) || (day.assignedTo.length === 1 ? day.location : '') || ''} 
                                   onChange={(e) => {
@@ -680,7 +761,7 @@ export default function App() {
                                     }
                                     setFormData({ ...formData, days: newDays });
                                   }} 
-                                  className="flex-1 w-full border border-slate-300 bg-white rounded p-2 lg:p-1.5 text-sm"
+                                  className="flex-1 w-full border border-slate-300 bg-white rounded p-1.5 text-sm h-full"
                                 >
                                   <option value="">{`-- Select Location --`}</option>
                                   {(settings.locations[worker] || []).map((loc, i) => (
@@ -690,40 +771,83 @@ export default function App() {
                               </div>
                             ))
                           ) : (
-                            <select disabled className="w-full border border-slate-200 bg-slate-50 text-slate-400 rounded p-2 lg:p-1.5 text-sm">
-                               <option>Select Worker First</option>
-                            </select>
+                            <div className="flex items-center h-[36px] w-full">
+                               <select disabled className="w-full border border-slate-200 bg-slate-50 text-slate-400 rounded p-1.5 text-sm h-full">
+                                  <option>Select Worker First</option>
+                               </select>
+                            </div>
                           )}
                           {(!Array.isArray(day.assignedTo) || day.assignedTo.length === 0) && day.location && (
                              <div className="text-xs text-slate-400 truncate mt-1">Legacy: {day.location}</div>
                           )}
                         </div>
-                        <div className="col-span-1 flex gap-2 lg:block">
-                          <div className="w-1/2 lg:w-full">
-                            <label className="text-xs text-slate-500 mb-1 block lg:hidden">Time In</label>
-                            <input type="time" value={day.startTime} onChange={(e) => updateDay(actualIndex, 'startTime', e.target.value)} className="w-full border border-slate-300 rounded p-2 lg:p-1.5 text-sm" />
-                          </div>
-                          <div className="w-1/2 lg:w-full lg:mt-2 lg:hidden">
-                            <label className="text-xs text-slate-500 mb-1 block">Time Out</label>
-                            <input type="time" value={day.stopTime} onChange={(e) => updateDay(actualIndex, 'stopTime', e.target.value)} className="w-full border border-slate-300 rounded p-2 text-sm" />
-                          </div>
+                        <div className="col-span-1 flex flex-col gap-1.5">
+                          <label className="text-xs text-slate-500 mb-1 block lg:hidden">Time In</label>
+                          {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
+                             day.assignedTo.map(worker => (
+                               <div key={worker} className="flex items-center h-[36px] w-full">
+                                 {day.assignedTo.length > 1 && <span className="lg:hidden text-[10px] font-bold text-slate-500 w-12 truncate mr-1">{worker}</span>}
+                                 <input 
+                                   type="time" 
+                                   value={(day.workerStartTimes && day.workerStartTimes[worker]) || (day.assignedTo.length === 1 ? day.startTime : '') || ''} 
+                                   onChange={(e) => updateWorkerTime(actualIndex, worker, 'start', e.target.value)} 
+                                   className="w-full border border-slate-300 rounded p-1.5 text-sm h-full" 
+                                 />
+                               </div>
+                             ))
+                          ) : (
+                             <div className="flex items-center h-[36px] w-full">
+                               <input type="time" disabled className="w-full border border-slate-200 bg-slate-50 rounded p-1.5 text-sm h-full" />
+                             </div>
+                          )}
                         </div>
-                        <div className="col-span-1 hidden lg:block">
-                          <input type="time" value={day.stopTime} onChange={(e) => updateDay(actualIndex, 'stopTime', e.target.value)} className="w-full border border-slate-300 rounded p-1.5 text-sm" />
+                        <div className="col-span-1 flex flex-col gap-1.5">
+                          <label className="text-xs text-slate-500 mb-1 block lg:hidden">Time Out</label>
+                          {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
+                             day.assignedTo.map(worker => (
+                               <div key={worker} className="flex items-center h-[36px] w-full">
+                                 {day.assignedTo.length > 1 && <span className="lg:hidden text-[10px] font-bold text-slate-500 w-12 truncate mr-1">{worker}</span>}
+                                 <input 
+                                   type="time" 
+                                   value={(day.workerStopTimes && day.workerStopTimes[worker]) || (day.assignedTo.length === 1 ? day.stopTime : '') || ''} 
+                                   onChange={(e) => updateWorkerTime(actualIndex, worker, 'stop', e.target.value)} 
+                                   className="w-full border border-slate-300 rounded p-1.5 text-sm h-full" 
+                                 />
+                               </div>
+                             ))
+                          ) : (
+                             <div className="flex items-center h-[36px] w-full">
+                               <input type="time" disabled className="w-full border border-slate-200 bg-slate-50 rounded p-1.5 text-sm h-full" />
+                             </div>
+                          )}
                         </div>
-                        <div className="col-span-1 flex items-center justify-center bg-slate-50 border border-slate-200 rounded p-2 lg:p-1.5 text-sm font-bold text-slate-700">
-                          <span className="lg:hidden mr-2 text-xs font-normal text-slate-500">Calculated Hours:</span>
-                          {day.hours > 0 ? day.hours : '-'}
+                        <div className="col-span-1 flex flex-col gap-1.5">
+                          <label className="text-xs text-slate-500 mb-1 block lg:hidden">Hours</label>
+                          {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
+                             day.assignedTo.map(worker => {
+                                const hrs = (day.workerHours && day.workerHours[worker]) || (day.assignedTo.length === 1 ? day.hours : 0) || '-';
+                                return (
+                                   <div key={worker} className="flex items-center justify-center bg-slate-50 border border-slate-200 rounded h-[36px] w-full text-sm font-bold text-slate-700">
+                                     {day.assignedTo.length > 1 && <span className="lg:hidden mr-1 text-[10px] font-normal text-slate-500">{worker}:</span>}
+                                     {hrs > 0 ? hrs : '-'}
+                                   </div>
+                                )
+                             })
+                          ) : (
+                             <div className="flex items-center justify-center bg-slate-50 border border-slate-200 rounded h-[36px] w-full text-sm font-bold text-slate-700">
+                               {day.hours > 0 ? day.hours : '-'}
+                             </div>
+                          )}
                         </div>
                         <div className="col-span-3 flex flex-col gap-1.5">
                            <label className="text-xs text-slate-500 mb-1 block lg:hidden">Task Details</label>
                            {typeof day.taskDetails === 'string' && day.taskDetails && (
-                              <input type="text" placeholder="General task (legacy)..." value={day.taskDetails} onChange={(e) => updateDay(actualIndex, 'taskDetails', e.target.value)} className="w-full border border-slate-300 rounded p-2 lg:p-1.5 text-sm" />
+                              <input type="text" placeholder="General task (legacy)..." value={day.taskDetails} onChange={(e) => updateDay(actualIndex, 'taskDetails', e.target.value)} className="w-full border border-slate-300 rounded p-1.5 text-sm h-[36px]" />
                            )}
                            {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
                              day.assignedTo.map(worker => (
-                               <div key={worker} className="flex items-start gap-1">
-                                 {day.assignedTo.length > 1 && <span className="text-[10px] font-bold text-slate-500 w-14 pt-2 leading-tight truncate">{worker}</span>}
+                               <div key={worker} className="flex items-center gap-1 h-[36px] w-full">
+                                 {day.assignedTo.length > 1 && <span className="text-[10px] font-bold text-slate-500 w-14 leading-tight truncate">{worker}</span>}
                                  <input 
                                    type="text" 
                                    placeholder={`${worker}'s Task...`}
@@ -736,12 +860,14 @@ export default function App() {
                                      };
                                      setFormData({ ...formData, days: newDays });
                                    }} 
-                                   className="flex-1 border border-slate-300 rounded p-2 lg:p-1.5 text-sm" 
+                                   className="flex-1 border border-slate-300 rounded p-1.5 text-sm h-full" 
                                  />
                                </div>
                              ))
                            ) : (
-                             <span className="text-xs text-slate-400 italic lg:mt-2">Select workers to assign tasks.</span>
+                             <div className="flex items-center h-[36px] w-full">
+                                <span className="text-xs text-slate-400 italic">Select workers to assign tasks.</span>
+                             </div>
                            )}
                         </div>
                       </div>
@@ -856,6 +982,7 @@ export default function App() {
                                 <option value="Check">Check</option>
                                 <option value="Direct Deposit">Direct Deposit</option>
                                 <option value="Cash">Cash</option>
+                                <option value="CashApp">CashApp</option>
                                 <option value="Zelle">Zelle</option>
                                 <option value="Venmo">Venmo</option>
                              </select>
@@ -909,7 +1036,7 @@ export default function App() {
                              <strong>Team:</strong> {workers.length > 0 ? workers.join(', ') : 'Unassigned'}
                            </p>
                            <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                             <button onClick={() => editSummary(summary)} className="text-blue-600 font-medium text-sm hover:underline">Edit / Print</button>
+                             <button onClick={() => editSummary(summary)} className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded font-medium text-xs transition">Load & Edit</button>
                              {deleteConfirmId === summary.id ? (
                                <div className="flex gap-2 text-sm bg-red-50 p-1 rounded border border-red-100">
                                  <button onClick={() => handleDelete(summary.id)} className="text-red-700 font-bold px-1 hover:underline">Confirm</button>
