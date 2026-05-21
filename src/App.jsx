@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown, CheckCircle2, Settings, Upload, Image as ImageIcon, Lock } from 'lucide-react';
 
 // --- Supabase Initialization ---
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -38,9 +39,9 @@ const defaultSettings = {
   email: 'charles@naileditpropertysolutions.com',
   website: 'www.NailedItPropertySolutions.com',
   locations: {
-    'Charlie': [],
-    'Mike & Lee': [],
-    'Terry': []
+    'Charlie': ["1056 Barker Rd", "119 E. Main St"],
+    'Mike & Lee': ["7146 Blacks Bluff Rd", "385 Woods Rd"],
+    'Terry': ["111 Nanellen Rd", "24 Blacks Bluff Rd"]
   }
 };
 
@@ -146,7 +147,7 @@ export default function App() {
   const handleLogin = (e) => {
     e.preventDefault();
     // Default master login credentials so the real admin can get in
-    if (loginUser.toLowerCase() === 'admin' && loginPass === '288784958') {
+    if (loginUser.toLowerCase() === 'admin' && loginPass === 'admin') {
       setIsLocked(false);
       setLoginError('');
     } else {
@@ -362,15 +363,16 @@ export default function App() {
 
     const tNet = tGross + tBons - tDeds;
 
+    // We explicitly set a height of 7.5in and width of 10.5in to strictly match US Letter Landscape with margins
     return (
-      <div className={`flex flex-col w-full h-[100vh] pt-4 ${!isLastPage ? 'page-break-after' : ''}`}>
+      <div className={`flex flex-col w-[10.5in] h-[7.5in] mx-auto box-border ${!isLastPage ? 'page-break-after' : ''}`}>
          {/* Print Header */}
-         <div className="flex items-end justify-between border-b-2 border-slate-800 pb-2 mb-6 shrink-0">
-             <div className="flex items-center gap-4">
-                <img src={settings.companyLogo || 'logo.png'} alt="Company Logo" className="h-16 w-auto object-contain" onError={(e) => e.target.style.display='none'} />
+         <div className="flex items-end justify-between border-b-2 border-slate-800 pb-2 mb-3 shrink-0">
+             <div className="flex items-center gap-3">
+                <img src={settings.companyLogo || 'logo.png'} alt="Company Logo" className="h-10 w-auto object-contain" onError={(e) => e.target.style.display='none'} />
                 <div>
-                   {settings.employeeName && <h2 className="text-xl font-bold text-slate-900 leading-tight">{settings.employeeName}</h2>}
-                   <div className="text-xs text-slate-700 flex gap-4 mt-1 font-medium">
+                   {settings.employeeName && <h2 className="text-lg font-bold text-slate-900 leading-tight">{settings.employeeName}</h2>}
+                   <div className="text-[10px] text-slate-700 flex gap-4 mt-0.5 font-medium">
                       {settings.phone && <span>{settings.phone}</span>}
                       {settings.email && <span>{settings.email}</span>}
                       {settings.website && <span>{settings.website}</span>}
@@ -378,61 +380,61 @@ export default function App() {
                 </div>
              </div>
              <div className="text-right">
-                 <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900 leading-tight">Weekly Summary</h1>
-                 <p className="text-base text-slate-700">Week Ending: <strong>{formData.weekEndingDate || 'N/A'}</strong></p>
+                 <h1 className="text-xl font-black uppercase tracking-widest text-slate-900 leading-tight">Weekly Summary</h1>
+                 <p className="text-sm text-slate-700">Week Ending: <strong>{formData.weekEndingDate || 'N/A'}</strong></p>
                  <div className="mt-1 flex gap-2 justify-end">
-                    <span className="inline-block bg-slate-800 text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">{title}</span>
+                    <span className="inline-block bg-slate-800 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{title}</span>
                     {printFilter !== 'All' && (
-                      <span className="inline-block bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs font-bold text-slate-800">Worker: {printFilter}</span>
+                      <span className="inline-block bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold text-slate-800">Worker: {printFilter}</span>
                     )}
                  </div>
              </div>
          </div>
 
          {/* Print Table */}
-         <div className="mb-4 break-inside-avoid w-full flex-1">
-           <table className="w-full border-collapse border border-slate-400 text-[11px]">
+         <div className="mb-2 break-inside-avoid w-full shrink-0">
+           <table className="w-full border-collapse border border-slate-400 text-[10px]">
               <thead>
                 <tr className="bg-slate-100 border-b border-slate-400 text-left">
-                  <th className="p-2 border-r border-slate-400 w-24">Day</th>
-                  <th className="p-2 border-r border-slate-400 w-24">Assigned To</th>
-                  <th className="p-2 border-r border-slate-400 w-48">Location</th>
-                  <th className="p-2 border-r border-slate-400 w-16 text-center">In</th>
-                  <th className="p-2 border-r border-slate-400 w-16 text-center">Out</th>
-                  <th className="p-2 border-r border-slate-400 w-12 text-center">Hrs</th>
-                  <th className="p-2">Task Details</th>
+                  <th className="p-1.5 border-r border-slate-400 w-20">Day</th>
+                  <th className="p-1.5 border-r border-slate-400 w-24">Assigned To</th>
+                  <th className="p-1.5 border-r border-slate-400 w-40">Location</th>
+                  <th className="p-1.5 border-r border-slate-400 w-12 text-center">In</th>
+                  <th className="p-1.5 border-r border-slate-400 w-12 text-center">Out</th>
+                  <th className="p-1.5 border-r border-slate-400 w-12 text-center">Hrs</th>
+                  <th className="p-1.5">Task Details</th>
                 </tr>
               </thead>
               <tbody>
                 {vDays.length > 0 ? vDays.map(d => (
                   <tr key={d.name} className="border-b border-slate-300">
-                     <td className="p-2 border-r border-slate-400 leading-tight"><strong>{d.name}</strong><br/><span className="text-[10px] text-slate-600">{d.date}</span></td>
-                     <td className="p-2 border-r border-slate-400">{d.assignedTo || '-'}</td>
-                     <td className="p-2 border-r border-slate-400 truncate max-w-[180px]">{d.location || '-'}</td>
-                     <td className="p-2 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
-                     <td className="p-2 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
-                     <td className="p-2 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
-                     <td className="p-2">{d.taskDetails || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400 leading-tight"><strong>{d.name}</strong><br/><span className="text-[9px] text-slate-600">{d.date}</span></td>
+                     <td className="p-1.5 border-r border-slate-400">{d.assignedTo || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400 truncate max-w-[180px]">{d.location || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
+                     <td className="p-1.5">{d.taskDetails || '-'}</td>
                   </tr>
                 )) : (
-                  <tr><td colSpan="7" className="p-4 text-center text-slate-500 italic">No scheduled days for this period.</td></tr>
+                  <tr><td colSpan="7" className="p-3 text-center text-slate-500 italic">No scheduled days for this period.</td></tr>
                 )}
               </tbody>
            </table>
          </div>
 
          {/* Print Payment Details */}
-         <div className="mt-auto pt-4 border-t-2 border-slate-800 break-inside-avoid flex justify-end">
-             <div className="w-[500px] bg-slate-50 p-5 border border-slate-300 rounded shadow-sm text-sm">
-                <h3 className="font-bold text-lg mb-4 text-center border-b border-slate-300 pb-2 uppercase tracking-wider">{title} - Payment</h3>
-                <div className="grid grid-cols-2 gap-8">
+         <div className="mt-auto pt-2 border-t-2 border-slate-800 break-inside-avoid flex justify-end shrink-0">
+             <div className="w-[450px] bg-slate-50 p-4 border border-slate-300 rounded shadow-sm text-xs">
+                <h3 className="font-bold text-sm mb-3 text-center border-b border-slate-300 pb-1.5 uppercase tracking-wider">{title} - Payment</h3>
+                <div className="grid grid-cols-2 gap-6">
                    <div>
-                      <div className="flex justify-between mb-2 text-slate-700"><span>Total Hours:</span><strong className="text-base">{tHours}</strong></div>
-                      <div className="flex justify-between mb-2 text-slate-700"><span>Rate:</span><strong>${Number(formData.rate || 20).toFixed(2)} / hr</strong></div>
-                      <div className="flex justify-between mb-3 border-b border-slate-200 pb-3 text-slate-800"><span>Gross Wage:</span><strong className="text-base">${tGross.toFixed(2)}</strong></div>
+                      <div className="flex justify-between mb-1.5 text-slate-700"><span>Total Hours:</span><strong className="text-sm">{tHours}</strong></div>
+                      <div className="flex justify-between mb-1.5 text-slate-700"><span>Rate:</span><strong>${Number(formData.rate || 20).toFixed(2)} / hr</strong></div>
+                      <div className="flex justify-between mb-2 border-b border-slate-200 pb-2 text-slate-800"><span>Gross Wage:</span><strong className="text-sm">${tGross.toFixed(2)}</strong></div>
                       {(formData.datePaid || formData.paymentMethod) && (
-                         <div className="mt-4 text-xs text-slate-600 bg-white p-2 border border-slate-200 rounded">
-                            <div className="mb-1"><strong>PAID:</strong> {formData.datePaid || 'Pending'}</div>
+                         <div className="mt-3 text-[10px] text-slate-600 bg-white p-2 border border-slate-200 rounded">
+                            <div className="mb-0.5"><strong>PAID:</strong> {formData.datePaid || 'Pending'}</div>
                             <div><strong>METHOD:</strong> {formData.paymentMethod || '-'}</div>
                          </div>
                       )}
@@ -440,23 +442,23 @@ export default function App() {
                    <div className="flex flex-col justify-between">
                       <div>
                         {vBons.length > 0 && (
-                          <div className="mb-2">
-                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Bonuses</span>
+                          <div className="mb-1.5">
+                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Bonuses</span>
                              {vBons.map(b => (
-                               <div key={b.id} className="flex justify-between text-slate-800 text-xs pl-1 mb-0.5"><span>+ {b.reason || 'Bonus'}</span><span>${Number(b.amount).toFixed(2)}</span></div>
+                               <div key={b.id} className="flex justify-between text-slate-800 text-[10px] pl-1 mb-0.5"><span>+ {b.reason || 'Bonus'}</span><span>${Number(b.amount).toFixed(2)}</span></div>
                              ))}
                           </div>
                         )}
                         {vDeds.length > 0 && (
-                          <div className="mb-3 border-b border-slate-200 pb-3">
-                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Deductions</span>
+                          <div className="mb-2 border-b border-slate-200 pb-2">
+                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Deductions</span>
                              {vDeds.map(d => (
-                               <div key={d.id} className="flex justify-between text-slate-800 text-xs pl-1 mb-0.5"><span>- {d.reason || 'Deduction'}</span><span>${Number(d.amount).toFixed(2)}</span></div>
+                               <div key={d.id} className="flex justify-between text-slate-800 text-[10px] pl-1 mb-0.5"><span>- {d.reason || 'Deduction'}</span><span>${Number(d.amount).toFixed(2)}</span></div>
                              ))}
                           </div>
                         )}
                       </div>
-                      <div className="flex justify-between items-center text-lg font-black mt-2 pt-2 bg-slate-200 px-3 py-2 rounded">
+                      <div className="flex justify-between items-center text-sm font-black mt-2 pt-1.5 bg-slate-200 px-2 py-1.5 rounded">
                         <span>Net Pay:</span><span>${tNet.toFixed(2)}</span>
                       </div>
                    </div>
@@ -914,8 +916,15 @@ export default function App() {
          <style type="text/css">
            {`
              @media print {
-               @page { size: landscape; margin: 0.5cm; }
-               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+               @page { size: letter landscape; margin: 0.3in; }
+               body { 
+                 -webkit-print-color-adjust: exact; 
+                 print-color-adjust: exact; 
+                 margin: 0; 
+                 padding: 0; 
+                 box-sizing: border-box; 
+               }
+               * { box-sizing: border-box; }
                .page-break-after { page-break-after: always; }
              }
            `}
