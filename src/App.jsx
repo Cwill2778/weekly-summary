@@ -146,7 +146,7 @@ export default function App() {
   const handleLogin = (e) => {
     e.preventDefault();
     // Default master login credentials so the real admin can get in
-    if (loginUser.toLowerCase() === '288784958' && loginPass === '288784958') {
+    if (loginUser.toLowerCase() === 'admin' && loginPass === '288784958') {
       setIsLocked(false);
       setLoginError('');
     } else {
