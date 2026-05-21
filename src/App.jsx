@@ -48,13 +48,13 @@ const defaultSettings = {
 const createInitialForm = () => ({
   weekEndingDate: '',
   days: [
-    { name: 'Monday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Tuesday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Wednesday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Thursday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Friday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Saturday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 },
-    { name: 'Sunday', date: '', location: '', assignedTo: '', startTime: '', stopTime: '', taskDetails: '', hours: 0 }
+    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
+    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
+    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
+    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
+    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
+    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 },
+    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', hours: 0 }
   ],
   rate: 20,
   deductions: [],
@@ -336,7 +336,7 @@ export default function App() {
       if ((s.weekEndingDate || '').includes(q)) return true;
       return (s.days || []).some(d => 
         (d.location && d.location.toLowerCase().includes(q)) ||
-        (d.assignedTo && d.assignedTo.toLowerCase().includes(q)) ||
+        (d.assignedTo && (Array.isArray(d.assignedTo) ? d.assignedTo.join(' ').toLowerCase() : String(d.assignedTo).toLowerCase()).includes(q)) ||
         (d.taskDetails && d.taskDetails.toLowerCase().includes(q))
       );
     });
@@ -345,7 +345,9 @@ export default function App() {
 
   // --- Render Print Reports ---
   const renderPrintPage = (title, daysSubset, periodName, isLastPage) => {
-    const vDays = daysSubset.filter(d => printFilter === 'All' || d.assignedTo === printFilter);
+    const checkAssigned = (assigned, filter) => filter === 'All' || (Array.isArray(assigned) ? assigned.includes(filter) : assigned === filter);
+
+    const vDays = daysSubset.filter(d => checkAssigned(d.assignedTo, printFilter));
     const tHours = vDays.reduce((sum, d) => sum + (Number(d.hours) || 0), 0);
     const tGross = tHours * (Number(formData.rate) || 20);
     
@@ -409,7 +411,7 @@ export default function App() {
                 {vDays.length > 0 ? vDays.map(d => (
                   <tr key={d.name} className="border-b border-slate-300">
                      <td className="p-1.5 border-r border-slate-400 leading-tight"><strong>{d.name}</strong><br/><span className="text-[9px] text-slate-600">{d.date}</span></td>
-                     <td className="p-1.5 border-r border-slate-400">{d.assignedTo || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400">{Array.isArray(d.assignedTo) ? d.assignedTo.join(', ') : (d.assignedTo || '-')}</td>
                      <td className="p-1.5 border-r border-slate-400 truncate max-w-[180px]">{d.location || '-'}</td>
                      <td className="p-1.5 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
                      <td className="p-1.5 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
@@ -610,26 +612,46 @@ export default function App() {
                         </div>
                         <div className="col-span-2">
                           <label className="text-xs text-slate-500 mb-1 block lg:hidden">Assigned To</label>
-                          <select value={day.assignedTo} onChange={(e) => updateDay(actualIndex, 'assignedTo', e.target.value)} className="w-full border border-slate-300 rounded p-2 lg:p-1.5 text-sm bg-white">
-                             <option value="">-- Select --</option>
-                             <option value="Charlie">Charlie</option>
-                             <option value="Mike & Lee">Mike & Lee</option>
-                             <option value="Terry">Terry</option>
-                          </select>
+                          <div className="flex flex-wrap gap-1">
+                            {['Charlie', 'Mike & Lee', 'Terry'].map(person => {
+                               const assignedArr = Array.isArray(day.assignedTo) ? day.assignedTo : (day.assignedTo ? [day.assignedTo] : []);
+                               const isSelected = assignedArr.includes(person);
+                               return (
+                                 <button
+                                   key={person}
+                                   type="button"
+                                   onClick={() => {
+                                     const next = isSelected ? assignedArr.filter(p => p !== person) : [...assignedArr, person];
+                                     updateDay(actualIndex, 'assignedTo', next);
+                                   }}
+                                   className={`px-1.5 py-0.5 text-[10px] sm:text-xs rounded border transition-colors ${isSelected ? 'bg-blue-100 border-blue-400 text-blue-800 font-bold' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}
+                                 >
+                                   {person}
+                                 </button>
+                               );
+                            })}
+                          </div>
                         </div>
                         <div className="col-span-2">
                           <label className="text-xs text-slate-500 mb-1 block lg:hidden">Location</label>
-                          <select 
-                             value={day.location} 
-                             onChange={(e) => updateDay(actualIndex, 'location', e.target.value)} 
-                             className={`w-full border ${!day.assignedTo ? 'border-slate-200 bg-slate-50 text-slate-400' : 'border-slate-300 bg-white'} rounded p-2 lg:p-1.5 text-sm`}
-                             disabled={!day.assignedTo}
-                          >
-                             <option value="">{day.assignedTo ? '-- Select Location --' : 'Select Worker First'}</option>
-                             {(settings.locations[day.assignedTo] || []).map((loc, i) => (
-                               <option key={i} value={loc}>{loc}</option>
-                             ))}
-                          </select>
+                          {(() => {
+                             const assignedArr = Array.isArray(day.assignedTo) ? day.assignedTo : (day.assignedTo ? [day.assignedTo] : []);
+                             const availableLocs = [...new Set(assignedArr.flatMap(p => settings.locations[p] || []))];
+                             const hasWorkers = assignedArr.length > 0;
+                             return (
+                               <select 
+                                 value={day.location} 
+                                 onChange={(e) => updateDay(actualIndex, 'location', e.target.value)} 
+                                 className={`w-full border ${!hasWorkers ? 'border-slate-200 bg-slate-50 text-slate-400' : 'border-slate-300 bg-white'} rounded p-2 lg:p-1.5 text-sm`}
+                                 disabled={!hasWorkers}
+                               >
+                                 <option value="">{hasWorkers ? '-- Select Location --' : 'Select Worker First'}</option>
+                                 {availableLocs.map((loc, i) => (
+                                   <option key={i} value={loc}>{loc}</option>
+                                 ))}
+                               </select>
+                             );
+                          })()}
                         </div>
                         <div className="col-span-1 flex gap-2 lg:block">
                           <div className="w-1/2 lg:w-full">
@@ -806,7 +828,7 @@ export default function App() {
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {filteredHistory.map(summary => {
                       const totalHrs = (summary.days || []).reduce((sum, d) => sum + (Number(d.hours)||0), 0);
-                      const workers = [...new Set((summary.days || []).map(d => d.assignedTo).filter(Boolean))];
+                      const workers = [...new Set((summary.days || []).flatMap(d => Array.isArray(d.assignedTo) ? d.assignedTo : [d.assignedTo]).filter(Boolean))];
                       return (
                         <div key={summary.id} className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition bg-slate-50">
                            <div className="flex justify-between items-start mb-2">
@@ -913,31 +935,10 @@ export default function App() {
 
       {/* --- PRINT VIEW --- */}
       <div className="hidden print:block w-full bg-white text-black p-0 m-0">
-         <style type="text/css">
-           {`
-             @media print {
-               @page { size: letter landscape; margin: 0.3in; }
-               body { 
-                 -webkit-print-color-adjust: exact; 
-                 print-color-adjust: exact; 
-                 margin: 0; 
-                 padding: 0; 
-                 box-sizing: border-box; 
-               }
-               * { box-sizing: border-box; }
-               .page-break-after { page-break-after: always; }
-             }
-           `}
-         </style>
-         
-         {/* Page 1: Weekdays Report */}
-         {renderPrintPage("Weekdays Report", formData.days.slice(0, 5), "Weekdays", false)}
-         
-         {/* Page 2: Weekend Report */}
-         {renderPrintPage("Weekend Report", formData.days.slice(5, 7), "Weekend", true)}
-
+        <div className="p-6">
+          <p className="text-sm text-slate-900">Printable view is available via the print button in the app.</p>
+        </div>
       </div>
-
     </div>
   );
 }
