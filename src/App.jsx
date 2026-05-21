@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown, CheckCircle2, Settings, Upload, Image as ImageIcon, Lock } from 'lucide-react';
 
 // --- Supabase Initialization ---
+// NOTE FOR VS CODE: Uncomment the two lines below and add your actual env variables back!
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -46,13 +47,13 @@ const defaultSettings = {
 const createInitialForm = () => ({
   weekEndingDate: '',
   days: [
-    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
-    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
-    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
-    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
-    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
-    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 },
-    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, hours: 0 }
+    { name: 'Monday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
+    { name: 'Tuesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
+    { name: 'Wednesday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
+    { name: 'Thursday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
+    { name: 'Friday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
+    { name: 'Saturday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 },
+    { name: 'Sunday', date: '', location: '', assignedTo: [], startTime: '', stopTime: '', taskDetails: '', workerTasks: {}, workerLocations: {}, hours: 0 }
   ],
   rate: 20,
   deductions: [],
@@ -336,7 +337,8 @@ export default function App() {
         (d.location && d.location.toLowerCase().includes(q)) ||
         (d.assignedTo && (Array.isArray(d.assignedTo) ? d.assignedTo.join(' ').toLowerCase() : String(d.assignedTo).toLowerCase()).includes(q)) ||
         (d.taskDetails && typeof d.taskDetails === 'string' && d.taskDetails.toLowerCase().includes(q)) ||
-        (d.workerTasks && Object.values(d.workerTasks).some(task => typeof task === 'string' && task.toLowerCase().includes(q)))
+        (d.workerTasks && Object.values(d.workerTasks).some(task => typeof task === 'string' && task.toLowerCase().includes(q))) ||
+        (d.workerLocations && Object.values(d.workerLocations).some(loc => typeof loc === 'string' && loc.toLowerCase().includes(q)))
       );
     });
     return filtered;
@@ -410,8 +412,23 @@ export default function App() {
                 {vDays.length > 0 ? vDays.map(d => (
                   <tr key={d.name} className="border-b border-slate-300">
                      <td className="p-1.5 border-r border-slate-400 leading-tight"><strong>{d.name}</strong><br/><span className="text-[9px] text-slate-600">{d.date}</span></td>
-                     <td className="p-1.5 border-r border-slate-400">{Array.isArray(d.assignedTo) ? d.assignedTo.join(', ') : (d.assignedTo || '-')}</td>
-                     <td className="p-1.5 border-r border-slate-400 truncate max-w-[180px]">{d.location || '-'}</td>
+                     <td className="p-1.5 border-r border-slate-400">
+                       {Array.isArray(d.assignedTo) ? (printFilter !== 'All' ? printFilter : d.assignedTo.join(', ')) : (d.assignedTo || '-')}
+                     </td>
+                     <td className="p-1.5 border-r border-slate-400 truncate max-w-[180px]">
+                        {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
+                           d.assignedTo.map(w => {
+                             if (printFilter !== 'All' && w !== printFilter) return null;
+                             const loc = (d.workerLocations && d.workerLocations[w]) || d.location || '-';
+                             return (
+                               <div key={w} className="mb-0.5 leading-tight truncate">
+                                 {(d.assignedTo.length > 1 && printFilter === 'All') && <strong className="text-[9px] text-slate-600">{w}: </strong>}
+                                 <span>{loc}</span>
+                               </div>
+                             );
+                           })
+                        ) : (d.location || '-')}
+                     </td>
                      <td className="p-1.5 border-r border-slate-400 text-center">{d.startTime || '-'}</td>
                      <td className="p-1.5 border-r border-slate-400 text-center">{d.stopTime || '-'}</td>
                      <td className="p-1.5 border-r border-slate-400 text-center font-bold text-slate-800">{d.hours > 0 ? d.hours : '-'}</td>
@@ -423,7 +440,7 @@ export default function App() {
                            if (!task) return null;
                            return (
                               <div key={w} className="mb-0.5 leading-tight">
-                                {(d.assignedTo.length > 1 || printFilter === 'All') && <strong className="text-[9px] text-slate-600">{w}: </strong>}
+                                {(d.assignedTo.length > 1 && printFilter === 'All') && <strong className="text-[9px] text-slate-600">{w}: </strong>}
                                 <span>{task}</span>
                               </div>
                            );
@@ -644,26 +661,42 @@ export default function App() {
                             })}
                           </div>
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex flex-col gap-1.5">
                           <label className="text-xs text-slate-500 mb-1 block lg:hidden">Location</label>
-                          {(() => {
-                             const assignedArr = Array.isArray(day.assignedTo) ? day.assignedTo : (day.assignedTo ? [day.assignedTo] : []);
-                             const availableLocs = [...new Set(assignedArr.flatMap(p => settings.locations[p] || []))];
-                             const hasWorkers = assignedArr.length > 0;
-                             return (
-                               <select 
-                                 value={day.location} 
-                                 onChange={(e) => updateDay(actualIndex, 'location', e.target.value)} 
-                                 className={`w-full border ${!hasWorkers ? 'border-slate-200 bg-slate-50 text-slate-400' : 'border-slate-300 bg-white'} rounded p-2 lg:p-1.5 text-sm`}
-                                 disabled={!hasWorkers}
-                               >
-                                 <option value="">{hasWorkers ? '-- Select Location --' : 'Select Worker First'}</option>
-                                 {availableLocs.map((loc, i) => (
-                                   <option key={i} value={loc}>{loc}</option>
-                                 ))}
-                               </select>
-                             );
-                          })()}
+                          {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
+                            day.assignedTo.map(worker => (
+                              <div key={worker} className="flex items-start gap-1">
+                                {day.assignedTo.length > 1 && <span className="text-[10px] font-bold text-slate-500 w-14 pt-2 leading-tight truncate">{worker}</span>}
+                                <select 
+                                  value={(day.workerLocations && day.workerLocations[worker]) || (day.assignedTo.length === 1 ? day.location : '') || ''} 
+                                  onChange={(e) => {
+                                    const newDays = [...formData.days];
+                                    newDays[actualIndex].workerLocations = {
+                                      ...(newDays[actualIndex].workerLocations || {}),
+                                      [worker]: e.target.value
+                                    };
+                                    if (day.assignedTo.length === 1) {
+                                       newDays[actualIndex].location = e.target.value;
+                                    }
+                                    setFormData({ ...formData, days: newDays });
+                                  }} 
+                                  className="flex-1 w-full border border-slate-300 bg-white rounded p-2 lg:p-1.5 text-sm"
+                                >
+                                  <option value="">{`-- Select Location --`}</option>
+                                  {(settings.locations[worker] || []).map((loc, i) => (
+                                    <option key={i} value={loc}>{loc}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))
+                          ) : (
+                            <select disabled className="w-full border border-slate-200 bg-slate-50 text-slate-400 rounded p-2 lg:p-1.5 text-sm">
+                               <option>Select Worker First</option>
+                            </select>
+                          )}
+                          {(!Array.isArray(day.assignedTo) || day.assignedTo.length === 0) && day.location && (
+                             <div className="text-xs text-slate-400 truncate mt-1">Legacy: {day.location}</div>
+                          )}
                         </div>
                         <div className="col-span-1 flex gap-2 lg:block">
                           <div className="w-1/2 lg:w-full">
@@ -690,7 +723,7 @@ export default function App() {
                            {Array.isArray(day.assignedTo) && day.assignedTo.length > 0 ? (
                              day.assignedTo.map(worker => (
                                <div key={worker} className="flex items-start gap-1">
-                                 <span className="text-[10px] font-bold text-slate-500 w-14 pt-2 leading-tight truncate">{worker}</span>
+                                 {day.assignedTo.length > 1 && <span className="text-[10px] font-bold text-slate-500 w-14 pt-2 leading-tight truncate">{worker}</span>}
                                  <input 
                                    type="text" 
                                    placeholder={`${worker}'s Task...`}
