@@ -6,8 +6,6 @@ import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown,
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const supabaseUrl = 'https://uluivtovwdhtxdljfntk.supabase.co'; 
-const supabaseKey = 'sb_publishable_MYnIPm3W7hOo28gNCBppOw_yl3YbkvK'; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Helper Functions ---
