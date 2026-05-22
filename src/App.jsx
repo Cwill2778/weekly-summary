@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Printer, Save, FileText, History, Trash2, Plus, X, Search, ChevronDown, CheckCircle2, Settings, Upload, Image as ImageIcon, Lock } from 'lucide-react';
 
 // --- Supabase Initialization ---
-// NOTE FOR VS CODE: Uncomment the two lines below and add your actual env variables back!
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -438,8 +437,8 @@ export default function App() {
       <div className={`flex flex-col w-[10.5in] h-[7.5in] mx-auto box-border ${!isLastPage ? 'page-break-after' : ''}`}>
          {/* Print Header */}
          <div className="flex items-end justify-between border-b-2 border-slate-800 pb-2 mb-3 shrink-0">
-             <div className="flex items-center gap-3">
-                <img src={settings.companyLogo || 'logo.png'} alt="Company Logo" className="h-10 w-auto object-contain" onError={(e) => e.target.style.display='none'} />
+             <div className="flex items-center gap-4">
+                <img src={settings.companyLogo || 'logo.png'} alt="Company Logo" className="h-14 w-auto object-contain" onError={(e) => e.target.style.display='none'} />
                 <div>
                    {settings.employeeName && <h2 className="text-lg font-bold text-slate-900 leading-tight">{settings.employeeName}</h2>}
                    <div className="text-[10px] text-slate-700 flex gap-4 mt-0.5 font-medium">
@@ -469,8 +468,8 @@ export default function App() {
                   <th className="p-1.5 border-r border-slate-400 w-20">Day</th>
                   <th className="p-1.5 border-r border-slate-400 w-24">Assigned To</th>
                   <th className="p-1.5 border-r border-slate-400 w-40">Location</th>
-                  <th className="p-1.5 border-r border-slate-400 w-12 text-center">In</th>
-                  <th className="p-1.5 border-r border-slate-400 w-12 text-center">Out</th>
+                  <th className="p-1.5 border-r border-slate-400 w-16 text-center">In</th>
+                  <th className="p-1.5 border-r border-slate-400 w-16 text-center">Out</th>
                   <th className="p-1.5 border-r border-slate-400 w-12 text-center">Hrs</th>
                   <th className="p-1.5">Task Details</th>
                 </tr>
@@ -500,19 +499,19 @@ export default function App() {
                         {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
                            d.assignedTo.map(w => {
                               if (printFilter !== 'All' && w !== printFilter) return null;
-                              const tIn = (d.workerStartTimes && d.workerStartTimes[w]) || (d.assignedTo.length === 1 ? d.startTime : '') || '-';
-                              return <div key={w} className="mb-0.5 leading-tight">{tIn}</div>;
+                              const tIn = (d.workerStartTimes && d.workerStartTimes[w]) || (d.assignedTo.length === 1 ? d.startTime : '');
+                              return <div key={w} className="mb-0.5 leading-tight whitespace-nowrap">{formatTime12Hour(tIn)}</div>;
                            })
-                        ) : (d.startTime || '-')}
+                        ) : (<div className="whitespace-nowrap">{formatTime12Hour(d.startTime)}</div>)}
                      </td>
                      <td className="p-1.5 border-r border-slate-400 text-center">
                         {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
                            d.assignedTo.map(w => {
                               if (printFilter !== 'All' && w !== printFilter) return null;
-                              const tOut = (d.workerStopTimes && d.workerStopTimes[w]) || (d.assignedTo.length === 1 ? d.stopTime : '') || '-';
-                              return <div key={w} className="mb-0.5 leading-tight">{tOut}</div>;
+                              const tOut = (d.workerStopTimes && d.workerStopTimes[w]) || (d.assignedTo.length === 1 ? d.stopTime : '');
+                              return <div key={w} className="mb-0.5 leading-tight whitespace-nowrap">{formatTime12Hour(tOut)}</div>;
                            })
-                        ) : (d.stopTime || '-')}
+                        ) : (<div className="whitespace-nowrap">{formatTime12Hour(d.stopTime)}</div>)}
                      </td>
                      <td className="p-1.5 border-r border-slate-400 text-center font-bold text-slate-800">
                         {Array.isArray(d.assignedTo) && d.assignedTo.length > 0 ? (
@@ -587,6 +586,11 @@ export default function App() {
                 </div>
              </div>
           </div>
+
+          {/* Print Footer */}
+          <div className="text-center text-[9px] text-slate-500 mt-2 font-medium">
+             Powered by Cronan Technology | www.cronantech.com
+          </div>
       </div>
     );
   };
@@ -636,6 +640,12 @@ export default function App() {
                   <p className="text-red-400 text-sm font-bold uppercase tracking-wider">{loginError}</p>
                </div>
             )}
+         </div>
+
+         {/* Lock Screen Footer */}
+         <div className="mt-8 text-slate-500 text-xs text-center">
+            Powered by <strong>Cronan Technology</strong><br />
+            <a href="https://www.cronantech.com" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition">www.cronantech.com</a>
          </div>
       </div>
     );
@@ -1139,6 +1149,14 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* --- SCREEN FOOTER --- */}
+      <footer className="bg-white border-t border-slate-200 py-4 mt-auto print:hidden">
+         <div className="max-w-6xl mx-auto px-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-slate-500">
+            <p>Powered by <strong>Cronan Technology</strong></p>
+            <a href="https://www.cronantech.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition hover:underline">www.cronantech.com</a>
+         </div>
+      </footer>
 
       {/* --- PRINT VIEW --- */}
       <div className="hidden print:block w-full bg-white text-black p-0 m-0">
