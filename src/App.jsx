@@ -18,6 +18,16 @@ const getHours = (start, end) => {
   return parseFloat((totalMins / 60).toFixed(2));
 };
 
+const formatTime12Hour = (time24h) => {
+  if (!time24h) return '-';
+  const [hoursStr, minutes] = time24h.split(':');
+  let hours = parseInt(hoursStr, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  return `${hours}:${minutes} ${ampm}`;
+};
+
 const getWeekDates = (fridayDateStr) => {
   if (!fridayDateStr) return Array(7).fill('');
   const friday = new Date(fridayDateStr);
