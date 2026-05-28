@@ -47,9 +47,9 @@ const defaultSettings = {
   email: 'charles@naileditpropertysolutions.com',
   website: 'www.NailedItPropertySolutions.com',
   locations: {
-    'Charlie': ["1056 Barker Rd", "119 E. Main St"],
-    'Mike & Lee': ["7146 Blacks Bluff Rd", "385 Woods Rd"],
-    'Terry': ["111 Nanellen Rd", "24 Blacks Bluff Rd"]
+    'Charlie': ["1056 Barker Rd.", "119 E. Main St.", "3 N. Blanche Ave", "2 N. Blanche Ave."],
+    'Mike & Lee': ["7146 Blacks Bluff Rd", "385 Woods Rd", "1206 N. 5th. Ave.", "531 W. 12th. St."],
+    'Terry': ["111 Nanellen Rd.", "24 Blacks Bluff Rd.", "113 Nanellen Rd."]
   }
 };
 
