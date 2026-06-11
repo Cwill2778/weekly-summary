@@ -694,6 +694,7 @@ export default function App() {
                         <button className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" onClick={() => handlePrint('Charlie')}>Charlie Only</button>
                         <button className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" onClick={() => handlePrint('Mike & Lee')}>Mike & Lee Only</button>
                         <button className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" onClick={() => handlePrint('Terry')}>Terry Only</button>
+                        <button className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" onClick={() => handlerPrint('Mike Britton')}>Mike Britton Only</button>
                      </div>
                    )}
                  </div>
@@ -744,7 +745,7 @@ export default function App() {
                         <div className="col-span-2">
                           <label className="text-xs text-slate-500 mb-1 block lg:hidden">Assigned To</label>
                           <div className="flex flex-wrap gap-1">
-                            {['Charlie', 'Mike & Lee', 'Terry'].map(person => {
+                            {['Charlie', 'Mike & Lee', 'Terry', 'Mike Britton',].map(person => {
                                const assignedArr = Array.isArray(day.assignedTo) ? day.assignedTo : (day.assignedTo ? [day.assignedTo] : []);
                                const isSelected = assignedArr.includes(person);
                                return (
@@ -920,6 +921,7 @@ export default function App() {
                              <option value="Charlie">Charlie</option>
                              <option value="Mike & Lee">Mike & Lee</option>
                              <option value="Terry">Terry</option>
+                             <option value="Mike Britton">Mike Britton</option>
                           </select>
                           <button onClick={() => removeFin('deductions', i)} className="text-slate-400 hover:text-red-500 p-1.5"><X size={18}/></button>
                        </div>
@@ -946,6 +948,7 @@ export default function App() {
                              <option value="Charlie">Charlie</option>
                              <option value="Mike & Lee">Mike & Lee</option>
                              <option value="Terry">Terry</option>
+                             <option value="Mike Britton">Mike Britton</option>
                           </select>
                           <button onClick={() => removeFin('bonuses', i)} className="text-slate-400 hover:text-red-500 p-1.5"><X size={18}/></button>
                        </div>
@@ -1123,7 +1126,7 @@ export default function App() {
                  <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
                     <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Worker Locations</h3>
                     <div className="space-y-6">
-                       {['Charlie', 'Mike & Lee', 'Terry'].map(person => (
+                       {['Charlie', 'Mike & Lee', 'Terry', 'Mike Britton',].map(person => (
                           <div key={person} className="bg-slate-50 p-3 rounded border border-slate-200">
                              <h4 className="font-bold text-sm text-slate-700 mb-2">{person}'s Locations</h4>
                              <div className="flex gap-2 mb-2">
