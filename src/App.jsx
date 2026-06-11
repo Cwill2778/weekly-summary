@@ -49,7 +49,8 @@ const defaultSettings = {
   locations: {
     'Charlie': ["1056 Barker Rd.", "119 E. Main St.", "3 N. Blanche Ave", "2 N. Blanche Ave."],
     'Mike & Lee': ["7146 Blacks Bluff Rd", "385 Woods Rd", "1206 N. 5th. Ave.", "531 W. 12th. St."],
-    'Terry': ["111 Nanellen Rd.", "24 Blacks Bluff Rd.", "113 Nanellen Rd."]
+    'Terry': ["111 Nanellen Rd.", "24 Blacks Bluff Rd.", "113 Nanellen Rd."],
+    'Mike Britton': ["1019 Turner Chapel Rd.",]
   }
 };
 
@@ -92,7 +93,7 @@ export default function App() {
   const [summaryTab, setSummaryTab] = useState('Total'); // 'Total' | 'Weekdays' | 'Weekend'
 
   const [settings, setSettings] = useState(defaultSettings);
-  const [newLocs, setNewLocs] = useState({ 'Charlie': '', 'Mike & Lee': '', 'Terry': '' });
+  const [newLocs, setNewLocs] = useState({ 'Charlie': '', 'Mike & Lee': '', 'Terry': '', 'Mike Britton': '' });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // --- Authentication & Data Fetching ---
